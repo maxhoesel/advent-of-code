@@ -1,6 +1,6 @@
 use std::{collections::HashSet, fs::read_to_string};
 
-use day3::items::{items_from_mask, mask_from_iter, Item};
+use day3::items::Item;
 use rayon::prelude::*;
 
 use color_eyre::{eyre::eyre, Result};
@@ -18,10 +18,8 @@ async fn main() -> Result<()> {
             let items_l: HashSet<Item> = left.par_chars().map(|c| c.into()).collect();
             let items_r: HashSet<Item> = right.par_chars().map(|c| c.into()).collect();
 
-            let mask_l = mask_from_iter(&items_l);
-            let mask_r = mask_from_iter(&items_r);
+            let mut in_both: Vec<_> = items_l.intersection(&items_r).collect();
 
-            let mut in_both = items_from_mask(mask_l & mask_r);
             match in_both.len() {
                 1 => Ok(in_both.pop().unwrap().prio as u64),
                 2.. => Err(eyre!("More than 1 duplicate item in compartment!")),
