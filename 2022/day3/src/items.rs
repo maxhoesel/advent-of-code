@@ -5,7 +5,7 @@ use strum::{EnumIter, IntoEnumIterator};
 pub type Mask = u64;
 
 #[derive(Copy, Clone, EnumIter)]
-enum ItemChar {
+enum ItemId {
     a = 1,
     b = 2,
     c = 3,
@@ -59,61 +59,61 @@ enum ItemChar {
     Y = 51,
     Z = 52,
 }
-impl From<char> for ItemChar {
+impl From<char> for ItemId {
     fn from(c: char) -> Self {
         match c {
-            'a' => ItemChar::a,
-            'b' => ItemChar::b,
-            'c' => ItemChar::c,
-            'd' => ItemChar::d,
-            'e' => ItemChar::e,
-            'f' => ItemChar::f,
-            'g' => ItemChar::g,
-            'h' => ItemChar::h,
-            'i' => ItemChar::i,
-            'j' => ItemChar::j,
-            'k' => ItemChar::k,
-            'l' => ItemChar::l,
-            'm' => ItemChar::m,
-            'n' => ItemChar::n,
-            'o' => ItemChar::o,
-            'p' => ItemChar::p,
-            'q' => ItemChar::q,
-            'r' => ItemChar::r,
-            's' => ItemChar::s,
-            't' => ItemChar::t,
-            'u' => ItemChar::u,
-            'v' => ItemChar::v,
-            'w' => ItemChar::w,
-            'x' => ItemChar::x,
-            'y' => ItemChar::y,
-            'z' => ItemChar::z,
-            'A' => ItemChar::A,
-            'B' => ItemChar::B,
-            'C' => ItemChar::C,
-            'D' => ItemChar::D,
-            'E' => ItemChar::E,
-            'F' => ItemChar::F,
-            'G' => ItemChar::G,
-            'H' => ItemChar::H,
-            'I' => ItemChar::I,
-            'J' => ItemChar::J,
-            'K' => ItemChar::K,
-            'L' => ItemChar::L,
-            'M' => ItemChar::M,
-            'N' => ItemChar::N,
-            'O' => ItemChar::O,
-            'P' => ItemChar::P,
-            'Q' => ItemChar::Q,
-            'R' => ItemChar::R,
-            'S' => ItemChar::S,
-            'T' => ItemChar::T,
-            'U' => ItemChar::U,
-            'V' => ItemChar::V,
-            'W' => ItemChar::W,
-            'X' => ItemChar::X,
-            'Y' => ItemChar::Y,
-            'Z' => ItemChar::Z,
+            'a' => ItemId::a,
+            'b' => ItemId::b,
+            'c' => ItemId::c,
+            'd' => ItemId::d,
+            'e' => ItemId::e,
+            'f' => ItemId::f,
+            'g' => ItemId::g,
+            'h' => ItemId::h,
+            'i' => ItemId::i,
+            'j' => ItemId::j,
+            'k' => ItemId::k,
+            'l' => ItemId::l,
+            'm' => ItemId::m,
+            'n' => ItemId::n,
+            'o' => ItemId::o,
+            'p' => ItemId::p,
+            'q' => ItemId::q,
+            'r' => ItemId::r,
+            's' => ItemId::s,
+            't' => ItemId::t,
+            'u' => ItemId::u,
+            'v' => ItemId::v,
+            'w' => ItemId::w,
+            'x' => ItemId::x,
+            'y' => ItemId::y,
+            'z' => ItemId::z,
+            'A' => ItemId::A,
+            'B' => ItemId::B,
+            'C' => ItemId::C,
+            'D' => ItemId::D,
+            'E' => ItemId::E,
+            'F' => ItemId::F,
+            'G' => ItemId::G,
+            'H' => ItemId::H,
+            'I' => ItemId::I,
+            'J' => ItemId::J,
+            'K' => ItemId::K,
+            'L' => ItemId::L,
+            'M' => ItemId::M,
+            'N' => ItemId::N,
+            'O' => ItemId::O,
+            'P' => ItemId::P,
+            'Q' => ItemId::Q,
+            'R' => ItemId::R,
+            'S' => ItemId::S,
+            'T' => ItemId::T,
+            'U' => ItemId::U,
+            'V' => ItemId::V,
+            'W' => ItemId::W,
+            'X' => ItemId::X,
+            'Y' => ItemId::Y,
+            'Z' => ItemId::Z,
             _ => panic!(),
         }
     }
@@ -124,18 +124,17 @@ pub struct Item {
     pub prio: u8,
     mask: Mask,
 }
-impl From<ItemChar> for Item {
-    fn from(ic: ItemChar) -> Self {
+impl From<ItemId> for Item {
+    fn from(id: ItemId) -> Self {
         Item {
-            prio: ic as u8,
-            mask: 0b1 << (ic as u8 - 1),
+            prio: id as u8,
+            mask: 0b1 << (id as u8 - 1),
         }
     }
 }
 impl From<char> for Item {
     fn from(c: char) -> Self {
-        let ic = ItemChar::from(c);
-        Item::from(ic)
+        Item::from(ItemId::from(c))
     }
 }
 
@@ -148,7 +147,7 @@ where
 
 pub fn items_from_mask(mask: Mask) -> Vec<Item> {
     let mut out: Vec<Item> = Vec::new();
-    for ic in ItemChar::iter() {
+    for ic in ItemId::iter() {
         let item = Item::from(ic);
         if item.mask & mask != 0 {
             out.push(item);
