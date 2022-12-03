@@ -1,4 +1,5 @@
 #[derive(Copy, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[non_exhaustive]
 pub struct Item {
     pub prio: u8,
 }
