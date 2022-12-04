@@ -1,5 +1,5 @@
 use color_eyre::{eyre::eyre, Report, Result};
-use day4::parse::range_from_str;
+use day4::range::range_tuple;
 use log::debug;
 use rayon::{prelude::ParallelIterator, str::ParallelString};
 use std::fs;
@@ -17,8 +17,8 @@ async fn main() -> Result<()> {
             let Some((left, right)) = line.split_once(',') else {
                 return Err(eyre!("Invalid line: does not contain two comma-separated ranges: {}", line));
             };
-            let l_range = range_from_str(left)?;
-            let r_range = range_from_str(right)?;
+            let l_range = range_tuple(left)?;
+            let r_range = range_tuple(right)?;
 
             let contained = (l_range.0 - r_range.0 >= 0 && l_range.1 - r_range.1 <= 0) || (l_range.0 - r_range.0 <= 0 && l_range.1 - r_range.1 >= 0);
 
