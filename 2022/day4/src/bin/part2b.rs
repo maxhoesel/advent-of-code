@@ -1,4 +1,4 @@
-use color_eyre::{eyre::eyre, Report, Result};
+use color_eyre::{eyre::eyre, Result};
 use day4::range::{range_from_str, RangeInclusiveExt};
 use log::debug;
 use rayon::{prelude::ParallelIterator, str::ParallelString};
