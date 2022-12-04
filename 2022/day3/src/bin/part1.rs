@@ -18,10 +18,10 @@ async fn main() -> Result<()> {
             let items_l: HashSet<Item> = left.par_chars().map(|c| c.into()).collect();
             let items_r: HashSet<Item> = right.par_chars().map(|c| c.into()).collect();
 
-            let mut in_both: Vec<_> = items_l.intersection(&items_r).collect();
+            let mut in_both = &items_l & &items_r;
 
             match in_both.len() {
-                1 => Ok(in_both.pop().unwrap().prio as u64),
+                1 => Ok(in_both.drain().next().unwrap().prio as u64),
                 2.. => Err(eyre!("More than 1 duplicate item in compartment!")),
                 _ => Err(eyre!("No duplicate item in compartment!")),
             }

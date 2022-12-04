@@ -19,9 +19,7 @@ async fn main() -> Result<()> {
             let items_1: HashSet<Item> = group[1].par_chars().map(|c| c.into()).collect();
             let items_2: HashSet<Item> = group[2].par_chars().map(|c| c.into()).collect();
 
-            let mut combined = items_0;
-            combined.retain(|e| items_1.contains(e));
-            combined.retain(|e| items_2.contains(e));
+            let mut combined = &(&items_0 & &items_1) & &items_2;
 
             match combined.len() {
                 1 => Ok(combined.drain().next().unwrap().prio as u64),
