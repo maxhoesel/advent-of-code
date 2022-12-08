@@ -98,7 +98,9 @@ fn main() -> Result<()> {
     println!("Highest Visibility: {}", highest);
 
     let colors = vec![Color::Red, Color::Yellow, Color::Green, Color::Blue];
-    let unique_scores = vis_scores.iter().unique().collect_vec();
+    let unique_scores = vis_scores
+        .iter() /*.unique()*/
+        .collect_vec();
     let color_ranges: HashMap<_, &Color> = unique_scores
         .chunks(unique_scores.len() / colors.len())
         .enumerate()
