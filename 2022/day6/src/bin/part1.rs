@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fs::read_to_string, hash::Hash};
+use std::{collections::HashSet, fs::read_to_string};
 
 const WINDOW_SIZE: usize = 14;
 
