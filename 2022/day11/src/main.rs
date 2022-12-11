@@ -47,9 +47,11 @@ fn main() -> Result<()> {
         top_business[0] * top_business[1]
     );
 
-    for _ in 0..1000 {
+    for i in 0..10000 {
+        print!("\rRound {}/9999", i);
         monkey_business(&mut panic_monkeys, true)?;
     }
+    println!();
     let top_business = panic_monkeys
         .iter()
         .map(|m| m.inspect_count())
@@ -59,7 +61,7 @@ fn main() -> Result<()> {
         .collect_vec();
     println!(
         "Monkey business level after 1000 rounds (PANIC): {}",
-        top_business[0] * top_business[1]
+        top_business[0] as u64 * top_business[1] as u64
     );
 
     Ok(())
