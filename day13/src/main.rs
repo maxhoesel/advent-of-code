@@ -26,7 +26,6 @@ struct Pair {
     left: Packet,
     right: Packet,
 }
-
 #[derive(Clone, PartialEq, Hash, Debug, Eq)]
 struct Packet(Element);
 impl PartialOrd for Packet {
@@ -50,8 +49,12 @@ impl Display for Element {
         match self {
             Element::List(l) => {
                 write!(f, "[")?;
-                for e in l {
-                    write!(f, "{}", e)?;
+                for i in 0..l.len() {
+                    if i + 1 == l.len() {
+                        write!(f, "{}", l[i])?;
+                    } else {
+                        write!(f, "{},", l[i])?;
+                    }
                 }
                 write!(f, "]")
             }
