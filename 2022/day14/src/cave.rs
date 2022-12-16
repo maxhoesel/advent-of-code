@@ -2,12 +2,24 @@ use std::fmt::Display;
 
 use itertools::Itertools;
 use log::info;
+use thiserror::Error;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Error)]
+pub enum DropError {
+    #[error("There is no floor for the sand to land on")]
+    IntoVoid,
+    #[error("The drop point is occupied by `{0}`")]
+    Occupied(Element),
+    #[error("Drop point `{0}` not inside cave")]
+    NotInCave(CavePos),
+}
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Cave {
     height: usize,
     width: usize,
     elements: Vec<Element>,
+    floor: Option<usize>,
 }
 impl Cave {
     pub fn new(height: usize, width: usize) -> Self {
@@ -15,8 +27,23 @@ impl Cave {
             height,
             width,
             elements: vec![Element::Void; height * width],
+            floor: None,
         }
     }
+    /// Create a cave with a floor at the specified height
+    pub fn with_floor(height: usize, width: usize) -> Self {
+        Cave {
+            height,
+            width,
+            elements: vec![Element::Void; height * width],
+            floor: Some(height - 1),
+        }
+    }
+
+    pub fn has_floor(&self) -> bool {
+        self.floor.is_some()
+    }
+
     pub fn at(&self, pos: &CavePos) -> Option<&Element> {
         self.elements.get(self._index(pos))
     }
@@ -26,12 +53,23 @@ impl Cave {
             let _ = std::mem::replace(&mut self.elements[i], element);
         }
     }
+
     // Drop some sand into the cave at pos and see where it comes to rest.
-    // Returns None if the sand falls into the abyss below 💀
-    pub fn drop_sand(&mut self, pos: &CavePos) -> Option<CavePos> {
+    pub fn drop_sand(&mut self, pos: &CavePos) -> Result<CavePos, DropError> {
+        match self.at(pos) {
+            e @ Some(Element::Rock) | e @ Some(Element::Sand) => {
+                return Err(DropError::Occupied(*e.unwrap()))
+            }
+            Some(Element::Void) => {}
+            None => return Err(DropError::NotInCave(*pos)),
+        };
         info!("Dropping Sand at {}", pos);
         let mut current = pos.clone();
         loop {
+            if current.y + 1 == self.floor.unwrap_or(0) {
+                info!("Reached cave floor at {}", pos);
+                break;
+            }
             let options = vec![
                 CavePos {
                     x: current.x,
@@ -67,7 +105,7 @@ impl Cave {
                 })
                 .next();
             if abyss_drop {
-                return None;
+                return Err(DropError::IntoVoid);
             }
             match new {
                 Some(new) => {
@@ -78,7 +116,7 @@ impl Cave {
         }
         self.set(&current, Element::Sand);
         info!("Sand has settled at {}", current);
-        Some(current)
+        Ok(current)
     }
 
     fn _index(&self, pos: &CavePos) -> usize {
@@ -113,7 +151,12 @@ impl Display for Cave {
                 write!(f, "**")?;
             }
             for x in first_element_x..last_element_x {
-                write!(f, "{}", self.elements[self._index(&CavePos { x, y })])?;
+                let e = if self.floor.is_some() && self.floor.unwrap() == y {
+                    Element::Rock.symbol()
+                } else {
+                    self.elements[self._index(&CavePos { x, y })].symbol()
+                };
+                write!(f, "{}", e)?;
             }
             if last_element_x + 1 != self.width {
                 write!(f, "**")?;
@@ -140,12 +183,21 @@ pub enum Element {
     Sand,
     Rock,
 }
+impl Element {
+    pub fn symbol(&self) -> char {
+        match self {
+            Element::Void => '.',
+            Element::Sand => 'o',
+            Element::Rock => '#',
+        }
+    }
+}
 impl Display for Element {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Element::Void => write!(f, "."),
-            Element::Sand => write!(f, "o"),
-            Element::Rock => write!(f, "#"),
+            Element::Void => write!(f, "Void"),
+            Element::Sand => write!(f, "Sand"),
+            Element::Rock => write!(f, "Rock"),
         }
     }
 }
