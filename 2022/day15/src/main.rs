@@ -10,6 +10,8 @@ use log::debug;
 use rayon::prelude::*;
 
 const ROW_TO_CHECK: isize = 2000000;
+const SEARCH_AREA_MIN: isize = 0;
+const SEARCH_AREA_MAX: isize = 4000000;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 enum GridElement {
@@ -85,5 +87,26 @@ fn main() -> Result<()> {
         beacon_free_cells.len(),
     );
 
+    for x in SEARCH_AREA_MIN..=SEARCH_AREA_MAX {
+        if x % 100 == 0 {
+            dbg!(x);
+        }
+        for y in SEARCH_AREA_MIN..=SEARCH_AREA_MAX {
+            let pos = GridCoord { x, y };
+            let mut in_range = false;
+            //dbg!("Position {}", &pos);
+            for s in &sensors {
+                //dbg!("Sensor {}", s);
+                if s.in_coverage_range(&pos) {
+                    //dbg!("In coverage range of sensor {}, cancelling", s);
+                    in_range = true;
+                    break;
+                }
+            }
+            if !in_range {
+                println!("Potential canditate: {}", pos);
+            }
+        }
+    }
     Ok(())
 }

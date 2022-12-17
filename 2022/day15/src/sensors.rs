@@ -118,6 +118,15 @@ impl Sensor {
         Some(y_min..=y_max)
     }
 
+    pub fn in_coverage_range(&self, pos: &GridCoord) -> bool {
+        match (self.coverage_by_row(pos.y), self.coverage_by_column(pos.x)) {
+            (None, None) => false,
+            (None, Some(_)) => false,
+            (Some(_), None) => false,
+            (Some(row_cov), Some(col_cov)) => row_cov.contains(&pos.x) && col_cov.contains(&pos.y),
+        }
+    }
+
     fn _parse_line<'a, E: ParseError<Span<'a>>>(input: Span<'a>) -> IResult<Span<'a>, Sensor, E> {
         let p = tuple((
             delimited(
