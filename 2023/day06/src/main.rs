@@ -103,5 +103,22 @@ fn main() {
             .iter()
             .map(|r| r.end - r.start)
             .product::<u64>()
-    )
+    );
+
+    // brute force just for lolz
+    let mut lowest = 0;
+    let mut highest = 0;
+    for i in 0..45988373 {
+        if i * (45988373 - i) > 295173412781210_u64 {
+            lowest = i;
+            break;
+        }
+    }
+    for i in (0..45988373).rev() {
+        if i * (45988373 - i) > 295173412781210_u64 {
+            highest = i;
+            break;
+        }
+    }
+    println!("{}", highest + 1 - lowest);
 }
