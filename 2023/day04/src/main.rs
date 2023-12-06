@@ -99,6 +99,7 @@ impl Card {
             })
         })(input)
     }
+
     fn value(&self) -> u64 {
         let wins = self.own_numbers.intersection(&self.winning_numbers).count();
         if wins == 0 {
