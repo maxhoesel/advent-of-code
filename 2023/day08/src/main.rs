@@ -173,6 +173,8 @@ impl Map<'_> {
         // I think we'd have to verify that (loop again until we reach the same z node) and make sure that this cycle
         // is the same length as the initial path to the first Z. Then we have a guaranteed cycle and just taking the LCM
         // of all nodes works to get us the first time they all match up.
+        //
+        // https://www.reddit.com/r/adventofcode/comments/18dfpub/2023_day_8_part_2_why_is_spoiler_correct/
         Ok(start_nodes.iter().map(|n| {
             let mut current_node = *n;
             let mut steps = 0;
