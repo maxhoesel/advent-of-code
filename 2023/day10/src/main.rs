@@ -149,11 +149,6 @@ impl Display for Element {
         )
     }
 }
-impl Element {
-    fn neighbours(&self) -> impl Iterator<Item = Pos> + '_ {
-        Direction::iter().filter_map(|dir| self.pos.neighbour(dir))
-    }
-}
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct Grid {
@@ -206,7 +201,7 @@ impl Grid {
             };
             if let Some(neigh_seg) = neigh.segment {
                 if !neigh_seg.connections().contains(&dir.rev()) {
-                    possible_shapes.retain(|s| !s.connections().contains(&dir.rev()));
+                    possible_shapes.retain(|s| !s.connections().contains(&dir));
                 }
             } else {
                 possible_shapes.retain(|s| !s.connections().contains(&dir));
@@ -289,15 +284,12 @@ impl Grid {
                     start: self.start,
                 };
                 return Some(Loop {
-                    len: len_count / 2,
-                    elements: elements.iter().map(|e| **e).collect_vec(),
+                    len: len_count,
+                    elements: elements.iter().copied().copied().collect_vec(),
                     grid,
                 });
             }
         }
-    }
-    fn find_connected_empty_plane(&self, start: &Element) -> Vec<&Element> {
-        todo!()
     }
 }
 impl Display for Grid {
@@ -327,66 +319,110 @@ impl Display for Loop {
 }
 impl Loop {
     fn contained_elements(&self) -> Vec<&Element> {
-        let mut visited_outside: HashSet<&Element> = HashSet::new();
-        let loop_neighbours: VecDeque<&Element> = self
-            .elements
-            .iter()
-            .map(|element| {
-                element
-                    .neighbours()
-                    .filter_map(|pos| self.grid.at(pos).filter(|neigh| neigh.segment.is_none()))
-            })
-            .flatten()
-            .collect();
+        #[derive(Clone, Copy, Debug)]
+        enum PipeOrigin {
+            Above,
+            Below,
+        }
 
-        for neigh in loop_neighbours {
-            let mut visisted = HashSet::new();
-            let mut todo: VecDeque<_> = neigh
-                .neighbours()
-                .filter_map(|pos| self.grid.at(pos).filter(|neigh| neigh.segment.is_none()))
-                .filter(|e| !visited_outside.contains(e))
-                .collect();
-            while let Some(current) = todo.pop_front() {
-                visisted.insert(current);
-                for new in current
-                    .neighbours()
-                    .filter_map(|pos| self.grid.at(pos).filter(|neigh| neigh.segment.is_none()))
-                    .filter(|neigh| !visisted.contains(neigh))
-                {
-                    todo.push_back(new);
+        let mut inside_elements = HashSet::new();
+
+        for row in &self.grid.grid {
+            let mut inside = false;
+            let mut current_pipe = None;
+            for element in row {
+                match (element.segment, &current_pipe) {
+                    // Inside the void
+                    (None, None) => {
+                        if inside {
+                            inside_elements.insert(element);
+                        }
+                    }
+                    // Crossing the line
+                    (Some(Segment::UpDown), None) => {
+                        inside = !inside;
+                    }
+                    // Start surfing a pipe
+                    (Some(Segment::UpRight), None) => current_pipe = Some(PipeOrigin::Above),
+                    (Some(Segment::RightDown), None) => current_pipe = Some(PipeOrigin::Below),
+                    // Still surfing
+                    (Some(Segment::LeftRight), Some(_)) => (),
+                    // Exiting a pipe without changing sides
+                    (Some(Segment::LeftUp), Some(PipeOrigin::Above))
+                    | (Some(Segment::DownLeft), Some(PipeOrigin::Below)) => {
+                        current_pipe = None;
+                    }
+                    // Exiting a pipe with changing sides
+                    (Some(Segment::LeftUp), Some(PipeOrigin::Below))
+                    | (Some(Segment::DownLeft), Some(PipeOrigin::Above)) => {
+                        current_pipe = None;
+                        inside = !inside;
+                    }
+                    _ => unreachable!(),
                 }
             }
-            if visisted.iter().any(|element| {
-                element.pos.row == 0
-                    || element.pos.row + 1 == self.grid.height
-                    || element.pos.col == 0
-                    || element.pos.col + 1 == self.grid.width
-            }) {
-                // we have reached the edge, this block is outside
-                visited_outside.extend(visisted.iter());
-            }
         }
-        todo!()
+        inside_elements.into_iter().collect_vec()
     }
 }
 
 const TEST1: &str = include_str!("test1.txt");
 const TEST2: &str = include_str!("test2.txt");
+const TEST3: &str = include_str!("test3.txt");
+const TEST4: &str = include_str!("test4.txt");
+const TEST5: &str = include_str!("test5.txt");
 const INPUT: &str = include_str!("input.txt");
 
 fn main() -> Result<()> {
     let test1_grid = Grid::from_input(TEST1)?;
-    println!("{}", test1_grid);
     let test1_loop = test1_grid.find_loop().ok_or(anyhow!("No loop"))?;
     println!("{}", test1_loop);
+    assert_eq!(test1_loop.len / 2, 4);
+
+    println!("\n");
 
     let test2_grid = Grid::from_input(TEST2)?;
-    println!("{}", test2_grid);
     let test2_loop = test2_grid.find_loop().ok_or(anyhow!("No loop"))?;
     println!("{}", test2_loop);
+    assert_eq!(test2_loop.len / 2, 8);
+
+    println!("\n");
+
+    let test3_grid = Grid::from_input(TEST3)?;
+    let test3_loop = test3_grid.find_loop().ok_or(anyhow!("No loop"))?;
+    println!("{}", test3_loop);
+    let test3_inside = test3_loop.contained_elements();
+    println!(
+        "Contained Elements: {} - {test3_inside:?}",
+        test3_inside.len()
+    );
+    assert_eq!(test3_inside.len(), 4);
+
+    println!("\n");
+
+    let test4_grid = Grid::from_input(TEST4)?;
+    let test4_loop = test4_grid.find_loop().ok_or(anyhow!("No loop"))?;
+    println!("{}", test4_loop);
+    let test4_inside = test4_loop.contained_elements();
+    println!("Contained Elements: {}", test4_inside.len());
+    assert_eq!(test4_inside.len(), 8);
+
+    println!("\n");
+
+    let test5_grid = Grid::from_input(TEST5)?;
+    let test5_loop = test5_grid.find_loop().ok_or(anyhow!("No loop"))?;
+    println!("{}", test5_loop);
+    let test5_inside = test5_loop.contained_elements();
+    println!("Contained Elements: {}", test5_inside.len());
+    assert_eq!(test5_inside.len(), 10);
+
+    println!("\n");
 
     let input_grid = Grid::from_input(INPUT)?;
     let input_loop = input_grid.find_loop().ok_or(anyhow!("No loop"))?;
-    println!("{}", input_loop);
+    //println!("{}", input_loop);
+    let input_inside = input_loop.contained_elements();
+    println!("Contained Elements: {}", input_inside.len());
+
     Ok(())
 }
