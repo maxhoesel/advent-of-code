@@ -420,7 +420,7 @@ fn main() -> Result<()> {
 
     let input_grid = Grid::from_input(INPUT)?;
     let input_loop = input_grid.find_loop().ok_or(anyhow!("No loop"))?;
-    //println!("{}", input_loop);
+    println!("{}", input_loop);
     let input_inside = input_loop.contained_elements();
     println!("Contained Elements: {}", input_inside.len());
 
