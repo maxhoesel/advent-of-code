@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Display};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Display,
+};
 
 use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use itertools::Itertools;
@@ -8,10 +11,34 @@ struct Pos {
     row: usize,
     col: usize,
 }
+impl PartialOrd for Pos {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Pos {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.row.cmp(&other.row) {
+            std::cmp::Ordering::Less => std::cmp::Ordering::Less,
+            std::cmp::Ordering::Equal => self.col.cmp(&other.col),
+            std::cmp::Ordering::Greater => std::cmp::Ordering::Greater,
+        }
+    }
+}
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 struct Boulder {
     pos: Pos,
     kind: BoulderKind,
+}
+impl PartialOrd for Boulder {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for Boulder {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.pos.cmp(&other.pos)
+    }
 }
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 enum BoulderKind {
@@ -19,7 +46,7 @@ enum BoulderKind {
     Fixed,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 struct BoulderField {
     boulders: Vec<Boulder>,
     height: usize,
@@ -64,6 +91,7 @@ impl BoulderField {
 
         assert!(height == width);
 
+        boulders.sort();
         BoulderField {
             boulders,
             height,
@@ -78,6 +106,7 @@ impl BoulderField {
             // Transpose
             std::mem::swap(&mut boulder.pos.row, &mut boulder.pos.col);
         }
+        self.boulders.sort();
     }
 
     fn roll_up(&mut self) {
@@ -100,6 +129,7 @@ impl BoulderField {
                 previous_boulder = Some(boulder);
             }
         }
+        boulders.sort();
     }
 
     fn calculate_load_up(&self) -> usize {
@@ -159,7 +189,10 @@ fn main() {
     test_field.rotate();
     test_field.rotate();
     test_field.rotate();
-    assert_eq!(tmp, test_field);
+    assert_eq!(
+        tmp.boulders.iter().collect::<HashSet<_>>(),
+        test_field.boulders.iter().collect::<HashSet<_>>()
+    );
 
     // test cycling
     test_field.cycle();
@@ -239,6 +272,11 @@ fn main() {
         spin.inc(1);
     };
     println!("Cycle detected at {start} with length {len}");
+    let cycles_to_skip = (1_000_000_000 - count) / len;
+    for _ in (cycles_to_skip * len)..1_000_000_000 {
+        input_field.cycle();
+    }
 
+    // the actual answer is 79723 - we're one value off somehow???
     println!("Input load (North): {}", input_field.calculate_load_up());
 }
