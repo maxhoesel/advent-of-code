@@ -33,7 +33,7 @@ fn fill_grid(input: &str, map: &mut SparseGrid<Mirror>) {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main2() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
@@ -143,6 +143,62 @@ async fn main() {
     }
     //println!("{}", walked_grid);
 
+    let mut possible_spawns = Vec::with_capacity(input_grid.height() * 2 + input_grid.width() * 2);
+    possible_spawns.extend((0..input_grid.height()).map(|row| BeamLocation {
+        position: Position { row, col: 0 },
+        direction: day16::Direction::Right,
+    }));
+    possible_spawns.extend((0..input_grid.height()).map(|row| BeamLocation {
+        position: Position {
+            row,
+            col: input_grid.width() - 1,
+        },
+        direction: day16::Direction::Left,
+    }));
+    possible_spawns.extend((0..input_grid.width()).map(|col| BeamLocation {
+        position: Position { row: 0, col },
+        direction: day16::Direction::Down,
+    }));
+    possible_spawns.extend((0..input_grid.width()).map(|col| BeamLocation {
+        position: Position {
+            row: input_grid.height() - 1,
+            col,
+        },
+        direction: day16::Direction::Up,
+    }));
+    let best = possible_spawns
+        .iter()
+        .map(|start| {
+            let input_walker = MazeRunner::new(Arc::clone(&input_grid), *start);
+            tokio::spawn(async move { input_walker.results().await })
+        })
+        .collect_vec();
+    let max_input = join_all(best)
+        .await
+        .iter()
+        .map(|e| e.as_ref().map_err(|e| anyhow!("whatever: {e}")))
+        .collect::<Result<Vec<_>>>()
+        .unwrap()
+        .iter()
+        .map(|r| {
+            r.visited_fields
+                .iter()
+                .map(|f| f.position)
+                .collect::<HashSet<_>>()
+        })
+        .max_by_key(|res| res.len())
+        .map(|r| r.len())
+        .unwrap();
+
+    println!("Input max possible {}", max_input);
+}
+
+#[tokio::main]
+async fn main() {
+    let mut input_grid = SparseGrid::new();
+    fill_grid(INPUT, &mut input_grid);
+    //println!("{}", input_grid);
+    let input_grid = Arc::new(input_grid);
     let mut possible_spawns = Vec::with_capacity(input_grid.height() * 2 + input_grid.width() * 2);
     possible_spawns.extend((0..input_grid.height()).map(|row| BeamLocation {
         position: Position { row, col: 0 },
