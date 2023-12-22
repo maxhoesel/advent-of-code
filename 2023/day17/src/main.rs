@@ -1,8 +1,17 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::{
+    cmp::Reverse,
+    collections::{BinaryHeap, HashMap, HashSet, VecDeque},
+};
 
+use indicatif::ProgressBar;
 use itertools::Itertools;
 use petgraph::{
-    data::Build, dot::Dot, graph::Node, graphmap::GraphMap, Directed, Direction::Outgoing,
+    data::Build,
+    dot::Dot,
+    graph::Node,
+    graphmap::GraphMap,
+    Directed,
+    Direction::{Incoming, Outgoing},
 };
 
 const MAX_STRAIGHT_STEPS: u32 = 3;
@@ -24,8 +33,25 @@ struct VariantData {
     predecessor: Direction,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+struct ByCostEntry {
+    cost: u32,
+    pos: Position,
+    variant: NodeVariant,
+}
+impl PartialOrd for ByCostEntry {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for ByCostEntry {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.cost.cmp(&other.cost)
+    }
+}
+
 fn crooked_dijkstra(graph: &CrucibleGraph, start: Position, goal: Position) -> u32 {
-    let mut found: HashMap<Position, HashMap<NodeVariant, VariantData>> = HashMap::new();
+    let mut found_variants: HashMap<Position, HashMap<NodeVariant, VariantData>> = HashMap::new();
     let mut start_map = HashMap::new();
     start_map.insert(
         NodeVariant {
@@ -47,29 +73,58 @@ fn crooked_dijkstra(graph: &CrucibleGraph, start: Position, goal: Position) -> u
             predecessor: Direction::Left, // meaningless
         },
     );
-    found.insert(start, start_map);
+    found_variants.insert(start, start_map);
+    let mut variants_by_cost: BinaryHeap<Reverse<ByCostEntry>> = BinaryHeap::new();
+    variants_by_cost.push(Reverse(ByCostEntry {
+        cost: 0,
+        pos: start,
+        variant: NodeVariant {
+            orientation: Orientation::Horizontal,
+            straight_steps: 0,
+        },
+    }));
+    variants_by_cost.push(Reverse(ByCostEntry {
+        cost: 0,
+        pos: start,
+        variant: NodeVariant {
+            orientation: Orientation::Vertical,
+            straight_steps: 0,
+        },
+    }));
 
-    let mut visited: HashSet<(Position, NodeVariant)> = HashSet::new();
+    let mut visited_variants: HashSet<(Position, NodeVariant)> = HashSet::new();
 
     loop {
         // find the next lowest value between horizontal and vertical
-        let (current_pos, current_variant, current_variant_data) = found
-            .iter()
-            .flat_map(|(pos, variants)| {
-                variants.iter().filter_map(|(variant, node)| {
-                    if !visited.contains(&(*pos, *variant)) {
-                        Some((*pos, *variant, *node))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .min_by_key(|entry| entry.2.cost)
-            .unwrap();
+        let (current_pos, current_variant, current_variant_data) = loop {
+            let Some(Reverse(next)) = variants_by_cost.pop() else {
+                panic!("Graph divided");
+            };
+            if !visited_variants.contains(&(next.pos, next.variant))
+                    // if the cost has diverged, this implies that the found variant has been updated since, ignore it
+                    && found_variants
+                        .get(&next.pos)
+                        .unwrap()
+                        .get(&next.variant)
+                        .unwrap()
+                        .cost
+                        == next.cost
+            {
+                break (
+                    next.pos,
+                    next.variant,
+                    *found_variants
+                        .get(&next.pos)
+                        .unwrap()
+                        .get(&next.variant)
+                        .unwrap(),
+                );
+            }
+        };
 
-        if found.contains_key(&goal)
+        if found_variants.contains_key(&goal)
             && current_variant_data.cost
-                > found
+                > found_variants
                     .get(&goal)
                     .unwrap()
                     .iter()
@@ -101,45 +156,65 @@ fn crooked_dijkstra(graph: &CrucibleGraph, start: Position, goal: Position) -> u
                     straight_steps: current_variant.straight_steps + 1,
                 });
             }
-
-            // for each one: variant visited? => skip. then, variant exists? => if not add, else compare costs
             for candiate_variant in possible_variants {
-                if visited.contains(&(to, candiate_variant)) {
+                if visited_variants.contains(&(to, candiate_variant)) {
                     // this variant has already been visited, no way it could be any better
                     continue;
                 }
-                if let Some(neigh_current) = found.get_mut(&to) {
-                    // Insert the variant if it doesn't exist, else replace it if our cost is lower
-                    neigh_current
-                        .entry(candiate_variant)
-                        .and_modify(|data| {
-                            if current_variant_data.cost + cost < data.cost {
-                                data.cost = current_variant_data.cost + cost;
-                                data.predecessor = dir.reverse();
-                            }
-                        })
-                        .or_insert(VariantData {
+
+                found_variants
+                    .entry(to)
+                    .and_modify(|neigh_current| {
+                        // Insert the variant if it doesn't exist, else replace it if our cost is lower
+                        neigh_current
+                            .entry(candiate_variant)
+                            .and_modify(|data| {
+                                if current_variant_data.cost + cost < data.cost {
+                                    data.cost = current_variant_data.cost + cost;
+                                    data.predecessor = dir.reverse();
+                                    variants_by_cost.push(Reverse(ByCostEntry {
+                                        cost: current_variant_data.cost + cost,
+                                        pos: to,
+                                        variant: candiate_variant,
+                                    }));
+                                }
+                            })
+                            .or_insert_with(|| {
+                                variants_by_cost.push(Reverse(ByCostEntry {
+                                    cost: current_variant_data.cost + cost,
+                                    pos: to,
+                                    variant: candiate_variant,
+                                }));
+                                VariantData {
+                                    cost: current_variant_data.cost + cost,
+                                    predecessor: dir.reverse(),
+                                }
+                            });
+                    })
+                    .or_insert_with(|| {
+                        // node has never been visited before, insert it
+                        let mut new_node_map = HashMap::new();
+                        new_node_map.insert(
+                            candiate_variant,
+                            VariantData {
+                                cost: current_variant_data.cost + cost,
+                                predecessor: dir.reverse(),
+                            },
+                        );
+                        variants_by_cost.push(Reverse(ByCostEntry {
                             cost: current_variant_data.cost + cost,
-                            predecessor: dir.reverse(),
-                        });
-                }
-                // node has never been visited before, insert it
-                let mut new_node_map = HashMap::new();
-                new_node_map.insert(
-                    candiate_variant,
-                    VariantData {
-                        cost: current_variant_data.cost + cost,
-                        predecessor: dir.reverse(),
-                    },
-                );
-                found.insert(to, new_node_map);
+                            pos: to,
+                            variant: candiate_variant,
+                        }));
+                        new_node_map
+                    });
             }
         }
-        visited.insert((current_pos, current_variant));
+        visited_variants.insert((current_pos, current_variant));
     }
 
     // Backtrack and find *one* possible path with the lowest cost
-    found
+    found_variants
         .get(&goal)
         .unwrap()
         .values()
@@ -179,7 +254,7 @@ fn fill_graph(graph: &mut CrucibleGraph, input: &str) {
 }
 
 const TEST: &str = include_str!("test.txt");
-const TEST2: &str = include_str!("test2.txt");
+const INPUT: &str = include_str!("input.txt");
 
 fn main() {
     let mut test_graph: CrucibleGraph = GraphMap::new();
@@ -194,15 +269,15 @@ fn main() {
         )
     );
 
-    let mut test2_graph: CrucibleGraph = GraphMap::new();
-    fill_graph(&mut test2_graph, TEST2);
+    let mut input_graph: CrucibleGraph = GraphMap::new();
+    fill_graph(&mut input_graph, INPUT);
 
     println!(
         "{}",
         crooked_dijkstra(
-            &test2_graph,
+            &input_graph,
             Position { row: 0, col: 0 },
-            Position { row: 0, col: 7 }
+            Position { row: 140, col: 140 }
         )
     );
 }
