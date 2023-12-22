@@ -12,7 +12,7 @@ type CrucibleGraph = GraphMap<Position, (u32, Direction), Directed>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 struct NodeVariant {
-    orientation: Orientation,
+    direction: Direction,
     straight_steps: u32,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,47 +47,34 @@ fn crooked_dijkstra(
     max_straight: u32,
 ) -> (u32, Vec<Direction>) {
     let mut found_variants: HashMap<Position, HashMap<NodeVariant, VariantData>> = HashMap::new();
-    let mut start_map = HashMap::new();
-    start_map.insert(
-        NodeVariant {
-            orientation: Orientation::Horizontal,
-            straight_steps: 0,
-        },
-        VariantData {
-            cost: 0,
-            predecessor: Direction::Left, // meaningless
-            path: vec![],
-        },
-    );
-    start_map.insert(
-        NodeVariant {
-            orientation: Orientation::Vertical,
-            straight_steps: 0,
-        },
-        VariantData {
-            cost: 0,
-            predecessor: Direction::Left, // meaningless
-            path: vec![],
-        },
-    );
-    found_variants.insert(start, start_map);
+
+    let mut start_found = HashMap::new();
+    for dir in Direction::iter() {
+        start_found.insert(
+            NodeVariant {
+                direction: dir,
+                straight_steps: 0,
+            },
+            VariantData {
+                cost: 0,
+                predecessor: Direction::Left, // meaningless
+                path: vec![],
+            },
+        );
+    }
+    found_variants.insert(start, start_found);
+
     let mut variants_by_cost: BinaryHeap<Reverse<ByCostEntry>> = BinaryHeap::new();
-    variants_by_cost.push(Reverse(ByCostEntry {
-        cost: 0,
-        pos: start,
-        variant: NodeVariant {
-            orientation: Orientation::Horizontal,
-            straight_steps: 0,
-        },
-    }));
-    variants_by_cost.push(Reverse(ByCostEntry {
-        cost: 0,
-        pos: start,
-        variant: NodeVariant {
-            orientation: Orientation::Vertical,
-            straight_steps: 0,
-        },
-    }));
+    for dir in Direction::iter() {
+        variants_by_cost.push(Reverse(ByCostEntry {
+            cost: 0,
+            pos: start,
+            variant: NodeVariant {
+                direction: dir,
+                straight_steps: 0,
+            },
+        }));
+    }
 
     let mut visited_variants: HashSet<(Position, NodeVariant)> = HashSet::new();
 
@@ -138,33 +125,60 @@ fn crooked_dijkstra(
             graph
                 .edges_directed(current_pos, Outgoing)
                 .filter(|(_, _, (_, dir))| {
-                    // we only care about edges that are relevant to our variants orientation
-                    current_variant.orientation == dir.orientation()
-                    // cannot reverse
-                    && current_variant_data.predecessor != *dir
+                    // we only care about edges that are relevant to our variants direction
+                    current_variant.direction == *dir
                 })
         {
             // construct the possible variants for the connecting node
             let mut possible_variants = vec![];
             // we can turn as long as we went our minimum straight distance...
-            if current_variant.straight_steps + 1 >= min_straight
-                && (
-                    // ...and if turning doesn't cause us to overshoot the target.
-                    (current_variant.orientation == Orientation::Horizontal
-                        && goal.row.abs_diff(to.row) >= min_straight as usize)
-                        || (current_variant.orientation == Orientation::Vertical
-                            && goal.col.abs_diff(to.col) >= min_straight as usize)
-                )
-            {
-                possible_variants.push(NodeVariant {
-                    orientation: current_variant.orientation.flip(),
-                    straight_steps: 0,
-                })
+            if current_variant.straight_steps + 1 >= min_straight {
+                // ...and if turning doesn't cause us to overshoot the target.
+                // Then, only insert the direction leading away from the target
+                if current_variant.direction.orientation() == Orientation::Horizontal {
+                    if goal.row.abs_diff(to.row) < min_straight as usize {
+                        possible_variants.push(NodeVariant {
+                            direction: if goal.row > to.row {
+                                Direction::Up
+                            } else {
+                                Direction::Down
+                            },
+                            straight_steps: 0,
+                        });
+                    } else {
+                        possible_variants.push(NodeVariant {
+                            direction: Direction::Up,
+                            straight_steps: 0,
+                        });
+                        possible_variants.push(NodeVariant {
+                            direction: Direction::Down,
+                            straight_steps: 0,
+                        });
+                    }
+                } else if goal.col.abs_diff(to.col) < min_straight as usize {
+                    possible_variants.push(NodeVariant {
+                        direction: if goal.col > to.col {
+                            Direction::Left
+                        } else {
+                            Direction::Right
+                        },
+                        straight_steps: 0,
+                    });
+                } else {
+                    possible_variants.push(NodeVariant {
+                        direction: Direction::Left,
+                        straight_steps: 0,
+                    });
+                    possible_variants.push(NodeVariant {
+                        direction: Direction::Right,
+                        straight_steps: 0,
+                    });
+                }
             }
             if current_variant.straight_steps + 1 < max_straight {
                 // the connecting node could also move in the same direction as us if we're below the step limit
                 possible_variants.push(NodeVariant {
-                    orientation: current_variant.orientation,
+                    direction: current_variant.direction,
                     straight_steps: current_variant.straight_steps + 1,
                 });
             }
